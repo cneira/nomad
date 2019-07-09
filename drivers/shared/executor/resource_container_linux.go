@@ -4,6 +4,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/hashicorp/nomad/client/stats"
+	"github.com/opencontainers/runc/libcontainer/cgroups"
 	cgroupConfig "github.com/opencontainers/runc/libcontainer/configs"
 )
 
@@ -22,4 +24,49 @@ func (rc *resourceContainerContext) executorCleanup() error {
 		return err
 	}
 	return nil
+}
+
+func (rc *resourceContainerContext) isEmpty() bool {
+	return rc.groups == nil
+}
+
+func (e *UniversalExecutor) getAllPids() (map[int]*nomadPid, error) {
+	ps, err := e.resConCtx.getAllPids()
+	e.logger.Debug("NEW getAllPids", "pids", ps, "error", err)
+	return ps, err
+}
+
+func (rc *resourceContainerContext) getAllPids() (map[int]*nomadPid, error) {
+	var nPids map[int]*nomadPid
+
+	// path, err := cgroups.FindCgroupMountpointDir()
+	// if err != nil {
+	// 	return err
+	// }
+
+	var paths map[string]string
+	if len(rc.groups.Paths) > 0 {
+		paths = rc.groups.Paths
+	} else {
+		paths[""] = rc.groups.Path
+	}
+
+	var pids []int
+	for _, p := range paths {
+		ps, err := cgroups.GetAllPids(p)
+		if err != nil {
+			return nPids, err
+		}
+		pids = append(pids, ps...)
+	}
+
+	for _, pid := range pids {
+		nPids[pid] = &nomadPid{
+			pid:           pid,
+			cpuStatsTotal: stats.NewCpuStats(),
+			cpuStatsUser:  stats.NewCpuStats(),
+			cpuStatsSys:   stats.NewCpuStats(),
+		}
+	}
+	return nPids, nil
 }
