@@ -36,7 +36,6 @@ type SystemScheduler struct {
 	limitReached bool
 	nextEval     *structs.Evaluation
 
-	blocked        map[string]*structs.Evaluation
 	failedTGAllocs map[string]*structs.AllocMetric
 	queuedAllocs   map[string]int
 }
@@ -396,8 +395,7 @@ func (s *SystemScheduler) computePlacements(place []allocTuple) error {
 }
 
 // addBlocked creates a new blocked eval for this job on this node
-// - Keep blocked evals in the scheduler, but just for grins
-// - Submits to the planner (worker.go), which keeps the eval for execution later
+// and submit to the planner (worker.go), which keeps the eval for execution later
 func (s *SystemScheduler) addBlocked(node *structs.Node) error {
 	e := s.ctx.Eligibility()
 	escaped := e.HasEscaped()
@@ -411,11 +409,6 @@ func (s *SystemScheduler) addBlocked(node *structs.Node) error {
 	blocked := s.eval.CreateBlockedEval(classEligibility, escaped, e.QuotaLimitReached())
 	blocked.StatusDescription = blockedEvalFailedPlacements
 	blocked.NodeID = node.ID
-
-	if s.blocked == nil {
-		s.blocked = map[string]*structs.Evaluation{}
-	}
-	s.blocked[node.ID] = blocked
 
 	return s.planner.CreateEval(blocked)
 }
