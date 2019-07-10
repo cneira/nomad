@@ -31,20 +31,17 @@ func (rc *resourceContainerContext) isEmpty() bool {
 }
 
 func (e *UniversalExecutor) getAllPids() (map[int]*nomadPid, error) {
-	ps, err := e.resConCtx.getAllPids()
-	e.logger.Debug("NEW getAllPids", "pids", ps, "error", err)
-	return ps, err
+	return e.resConCtx.getAllPids()
 }
 
 func (rc *resourceContainerContext) getAllPids() (map[int]*nomadPid, error) {
-	var nPids map[int]*nomadPid
+	nPids := map[int]*nomadPid{}
 
-	// path, err := cgroups.FindCgroupMountpointDir()
-	// if err != nil {
-	// 	return err
-	// }
+	if rc.groups == nil {
+		return nPids, nil
+	}
 
-	var paths map[string]string
+	paths := map[string]string{}
 	if len(rc.groups.Paths) > 0 {
 		paths = rc.groups.Paths
 	} else {
@@ -68,5 +65,6 @@ func (rc *resourceContainerContext) getAllPids() (map[int]*nomadPid, error) {
 			cpuStatsSys:   stats.NewCpuStats(),
 		}
 	}
+
 	return nPids, nil
 }
