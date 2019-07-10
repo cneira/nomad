@@ -183,13 +183,13 @@ func requireBlockedEvalsEnqueued(t *testing.T, blocked *BlockedEvals, broker *Ev
 		// Verify Unblock caused an enqueue
 		brokerStats := broker.Stats()
 		if brokerStats.TotalReady != enqueued {
-			return false, fmt.Errorf("bad: %#v", brokerStats)
+			return false, fmt.Errorf("missing enqueued evals: %#v", brokerStats)
 		}
 
 		// Verify Unblock updates the stats
 		bStats := blocked.Stats()
 		if bStats.TotalBlocked != 0 || bStats.TotalEscaped != 0 {
-			return false, fmt.Errorf("bad: %#v", bStats)
+			return false, fmt.Errorf("evals still blocked: %#v", bStats)
 		}
 		return true, nil
 	}, func(err error) {
