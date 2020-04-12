@@ -18,7 +18,7 @@ endif
 
 default: help
 
-ifeq (,$(findstring $(THIS_OS),Darwin Linux FreeBSD Windows))
+ifeq (,$(findstring $(THIS_OS),Darwin Linux FreeBSD Windows SunOS))
 $(error Building Nomad is currently only supported on Darwin and Linux.)
 endif
 
@@ -51,6 +51,13 @@ ifeq (FreeBSD,$(THIS_OS))
 ALL_TARGETS += freebsd_amd64
 endif
 
+# On Illumos, we only build for Illumos
+ifeq (SunOS,$(THIS_OS))
+ALL_TARGETS += sunos_amd64
+endif
+
+
+
 # include per-user customization after all variables are defined
 -include GNUMakefile.local
 
@@ -69,6 +76,24 @@ pkg/freebsd_amd64/nomad: $(SOURCE_FILES) ## Build Nomad for freebsd/amd64
 		-ldflags $(GO_LDFLAGS) \
 		-tags "$(GO_TAGS)" \
 		-o "$@"
+
+pkg/sunos_amd64/nomad: $(SOURCE_FILES) ## Build Nomad for sunos/amd64
+	@echo "==> Building $@..."
+	@CGO_ENABLED=1 GOOS=illumos GOARCH=amd64 \
+		go build \
+		-ldflags $(GO_LDFLAGS) \
+		-tags "$(GO_TAGS)" \
+		-o "$@"
+pkg/illumos_amd64/nomad: $(SOURCE_FILES) ## Build Nomad for sunos/amd64
+	@echo "==> Building $@..."
+	@CGO_ENABLED=1 GOOS=illumos GOARCH=amd64 \
+		go build \
+		-ldflags $(GO_LDFLAGS) \
+		-tags "$(GO_TAGS)" \
+		-o "$@"
+
+
+
 
 pkg/linux_386/nomad: $(SOURCE_FILES) ## Build Nomad for linux/386
 	@echo "==> Building $@ with tags $(GO_TAGS)..."

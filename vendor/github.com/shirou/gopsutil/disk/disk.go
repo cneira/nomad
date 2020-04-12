@@ -6,7 +6,11 @@ import (
 	"github.com/shirou/gopsutil/internal/common"
 )
 
-var invoke common.Invoker = common.Invoke{}
+var invoke common.Invoker
+
+func init() {
+	invoke = common.Invoke{}
+}
 
 type UsageStat struct {
 	Path              string  `json:"path"`
@@ -28,6 +32,8 @@ type PartitionStat struct {
 	Opts       string `json:"opts"`
 }
 
+// IOCounterStats attributes are defined in iostats.txt:
+// https://github.com/torvalds/linux/blob/master/Documentation/iostats.txt#L60-L91
 type IOCountersStat struct {
 	ReadCount        uint64 `json:"readCount"`
 	MergedReadCount  uint64 `json:"mergedReadCount"`
@@ -42,7 +48,6 @@ type IOCountersStat struct {
 	WeightedIO       uint64 `json:"weightedIO"`
 	Name             string `json:"name"`
 	SerialNumber     string `json:"serialNumber"`
-	Label            string `json:"label"`
 }
 
 func (d UsageStat) String() string {

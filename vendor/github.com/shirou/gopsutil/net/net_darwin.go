@@ -3,10 +3,8 @@
 package net
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"github.com/shirou/gopsutil/internal/common"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -43,7 +41,7 @@ func parseNetstatLine(line string) (stat *IOCountersStat, linkID *uint, err erro
 
 	base := 1
 	numberColumns := len(columns)
-	// sometimes Address is omitted
+	// sometimes Address is ommitted
 	if numberColumns < 12 {
 		base = 0
 	}
@@ -166,22 +164,18 @@ func (min mapInterfaceNameUsage) notTruncated() []string {
 // lo0   16384 ::1/128     ::1                 869107     -  169411755   869107     -  169411755     -   -
 // lo0   16384 127           127.0.0.1         869107     -  169411755   869107     -  169411755     -   -
 func IOCounters(pernic bool) ([]IOCountersStat, error) {
-	return IOCountersWithContext(context.Background(), pernic)
-}
-
-func IOCountersWithContext(ctx context.Context, pernic bool) ([]IOCountersStat, error) {
 	var (
 		ret      []IOCountersStat
 		retIndex int
 	)
 
-	netstat, err := exec.LookPath("netstat")
+	netstat, err := exec.LookPath("/usr/sbin/netstat")
 	if err != nil {
 		return nil, err
 	}
 
 	// try to get all interface metrics, and hope there won't be any truncated
-	out, err := invoke.CommandWithContext(ctx, netstat, "-ibdnW")
+	out, err := invoke.Command(netstat, "-ibdnW")
 	if err != nil {
 		return nil, err
 	}
@@ -205,11 +199,11 @@ func IOCountersWithContext(ctx context.Context, pernic bool) ([]IOCountersStat, 
 		}
 	} else {
 		// duplicated interface, list all interfaces
-		ifconfig, err := exec.LookPath("ifconfig")
+		ifconfig, err := exec.LookPath("/sbin/ifconfig")
 		if err != nil {
 			return nil, err
 		}
-		if out, err = invoke.CommandWithContext(ctx, ifconfig, "-l"); err != nil {
+		if out, err = invoke.Command(ifconfig, "-l"); err != nil {
 			return nil, err
 		}
 		interfaceNames := strings.Fields(strings.TrimRight(string(out), endOfLine))
@@ -228,7 +222,7 @@ func IOCountersWithContext(ctx context.Context, pernic bool) ([]IOCountersStat, 
 			}
 			if truncated {
 				// run netstat with -I$ifacename
-				if out, err = invoke.CommandWithContext(ctx, netstat, "-ibdnWI"+interfaceName); err != nil {
+				if out, err = invoke.Command(netstat, "-ibdnWI"+interfaceName); err != nil {
 					return nil, err
 				}
 				parsedIfaces, err := parseNetstatOutput(string(out))
@@ -257,27 +251,11 @@ func IOCountersWithContext(ctx context.Context, pernic bool) ([]IOCountersStat, 
 
 // NetIOCountersByFile is an method which is added just a compatibility for linux.
 func IOCountersByFile(pernic bool, filename string) ([]IOCountersStat, error) {
-	return IOCountersByFileWithContext(context.Background(), pernic, filename)
-}
-
-func IOCountersByFileWithContext(ctx context.Context, pernic bool, filename string) ([]IOCountersStat, error) {
 	return IOCounters(pernic)
 }
 
 func FilterCounters() ([]FilterStat, error) {
-	return FilterCountersWithContext(context.Background())
-}
-
-func FilterCountersWithContext(ctx context.Context) ([]FilterStat, error) {
 	return nil, errors.New("NetFilterCounters not implemented for darwin")
-}
-
-func ConntrackStats(percpu bool) ([]ConntrackStat, error) {
-	return ConntrackStatsWithContext(context.Background(), percpu)
-}
-
-func ConntrackStatsWithContext(ctx context.Context, percpu bool) ([]ConntrackStat, error) {
-	return nil, common.ErrNotImplementedError
 }
 
 // NetProtoCounters returns network statistics for the entire system
@@ -285,9 +263,5 @@ func ConntrackStatsWithContext(ctx context.Context, percpu bool) ([]ConntrackSta
 // just the protocols in the list are returned.
 // Not Implemented for Darwin
 func ProtoCounters(protocols []string) ([]ProtoCountersStat, error) {
-	return ProtoCountersWithContext(context.Background(), protocols)
-}
-
-func ProtoCountersWithContext(ctx context.Context, protocols []string) ([]ProtoCountersStat, error) {
 	return nil, errors.New("NetProtoCounters not implemented for darwin")
 }

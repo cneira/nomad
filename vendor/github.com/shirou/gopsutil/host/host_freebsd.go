@@ -4,21 +4,19 @@ package host
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"io/ioutil"
-	"math"
 	"os"
+	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync/atomic"
-	"syscall"
 	"time"
 	"unsafe"
 
 	"github.com/shirou/gopsutil/internal/common"
 	"github.com/shirou/gopsutil/process"
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -28,10 +26,6 @@ const (
 )
 
 func Info() (*InfoStat, error) {
-	return InfoWithContext(context.Background())
-}
-
-func InfoWithContext(ctx context.Context) (*InfoStat, error) {
 	ret := &InfoStat{
 		OS:             runtime.GOOS,
 		PlatformFamily: "freebsd",
@@ -48,11 +42,6 @@ func InfoWithContext(ctx context.Context) (*InfoStat, error) {
 		ret.PlatformFamily = family
 		ret.PlatformVersion = version
 		ret.KernelVersion = version
-	}
-
-	kernelArch, err := kernelArch()
-	if err == nil {
-		ret.KernelArch = kernelArch
 	}
 
 	system, role, err := Virtualization()
@@ -72,9 +61,9 @@ func InfoWithContext(ctx context.Context) (*InfoStat, error) {
 		ret.Procs = uint64(len(procs))
 	}
 
-	hostid, err := unix.Sysctl("kern.hostuuid")
-	if err == nil && hostid != "" {
-		ret.HostID = strings.ToLower(hostid)
+	values, err := common.DoSysctrl("kern.hostuuid")
+	if err == nil && len(values) == 1 && values[0] != "" {
+		ret.HostID = strings.ToLower(values[0])
 	}
 
 	return ret, nil
@@ -84,21 +73,23 @@ func InfoWithContext(ctx context.Context) (*InfoStat, error) {
 var cachedBootTime uint64
 
 func BootTime() (uint64, error) {
-	return BootTimeWithContext(context.Background())
-}
-
-func BootTimeWithContext(ctx context.Context) (uint64, error) {
 	t := atomic.LoadUint64(&cachedBootTime)
 	if t != 0 {
 		return t, nil
 	}
-	buf, err := unix.SysctlRaw("kern.boottime")
+	values, err := common.DoSysctrl("kern.boottime")
 	if err != nil {
 		return 0, err
 	}
+	// ex: { sec = 1392261637, usec = 627534 } Thu Feb 13 12:20:37 2014
+	v := strings.Replace(values[2], ",", "", 1)
 
-	tv := *(*syscall.Timeval)(unsafe.Pointer((&buf[0])))
-	atomic.StoreUint64(&cachedBootTime, uint64(tv.Sec))
+	boottime, err := strconv.ParseUint(v, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	t = uint64(boottime)
+	atomic.StoreUint64(&cachedBootTime, t)
 
 	return t, nil
 }
@@ -108,10 +99,6 @@ func uptime(boot uint64) uint64 {
 }
 
 func Uptime() (uint64, error) {
-	return UptimeWithContext(context.Background())
-}
-
-func UptimeWithContext(ctx context.Context) (uint64, error) {
 	boot, err := BootTime()
 	if err != nil {
 		return 0, err
@@ -120,10 +107,6 @@ func UptimeWithContext(ctx context.Context) (uint64, error) {
 }
 
 func Users() ([]UserStat, error) {
-	return UsersWithContext(context.Background())
-}
-
-func UsersWithContext(ctx context.Context) ([]UserStat, error) {
 	utmpfile := "/var/run/utx.active"
 	if !common.PathExists(utmpfile) {
 		utmpfile = "/var/run/utmp" // before 9.0
@@ -149,11 +132,11 @@ func UsersWithContext(ctx context.Context) ([]UserStat, error) {
 		b := buf[i*sizeOfUtmpx : (i+1)*sizeOfUtmpx]
 		var u Utmpx
 		br := bytes.NewReader(b)
-		err := binary.Read(br, binary.BigEndian, &u)
+		err := binary.Read(br, binary.LittleEndian, &u)
 		if err != nil || u.Type != 4 {
 			continue
 		}
-		sec := math.Floor(float64(u.Tv) / 1000000)
+		sec := (binary.LittleEndian.Uint32(u.Tv.Sec[:])) / 2 // TODO:
 		user := UserStat{
 			User:     common.IntToString(u.User[:]),
 			Terminal: common.IntToString(u.Line[:]),
@@ -169,29 +152,32 @@ func UsersWithContext(ctx context.Context) ([]UserStat, error) {
 }
 
 func PlatformInformation() (string, string, string, error) {
-	return PlatformInformationWithContext(context.Background())
-}
-
-func PlatformInformationWithContext(ctx context.Context) (string, string, string, error) {
-	platform, err := unix.Sysctl("kern.ostype")
+	platform := ""
+	family := ""
+	version := ""
+	uname, err := exec.LookPath("uname")
 	if err != nil {
 		return "", "", "", err
 	}
 
-	version, err := unix.Sysctl("kern.osrelease")
-	if err != nil {
-		return "", "", "", err
+	out, err := invoke.Command(uname, "-s")
+	if err == nil {
+		platform = strings.ToLower(strings.TrimSpace(string(out)))
 	}
 
-	return strings.ToLower(platform), "", strings.ToLower(version), nil
+	out, err = invoke.Command(uname, "-r")
+	if err == nil {
+		version = strings.ToLower(strings.TrimSpace(string(out)))
+	}
+
+	return platform, family, version, nil
 }
 
 func Virtualization() (string, string, error) {
-	return VirtualizationWithContext(context.Background())
-}
+	system := ""
+	role := ""
 
-func VirtualizationWithContext(ctx context.Context) (string, string, error) {
-	return "", "", common.ErrNotImplementedError
+	return system, role, nil
 }
 
 // before 9.0
@@ -234,18 +220,5 @@ func getUsersFromUtmp(utmpfile string) ([]UserStat, error) {
 }
 
 func SensorsTemperatures() ([]TemperatureStat, error) {
-	return SensorsTemperaturesWithContext(context.Background())
-}
-
-func SensorsTemperaturesWithContext(ctx context.Context) ([]TemperatureStat, error) {
 	return []TemperatureStat{}, common.ErrNotImplementedError
-}
-
-func KernelVersion() (string, error) {
-	return KernelVersionWithContext(context.Background())
-}
-
-func KernelVersionWithContext(ctx context.Context) (string, error) {
-	_, _, version, err := PlatformInformation()
-	return version, err
 }

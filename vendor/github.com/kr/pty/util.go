@@ -5,7 +5,7 @@ package pty
 import (
 	"os"
 	"syscall"
-	"unsafe"
+	"golang.org/x/sys/unix"
 )
 
 // InheritSize applies the terminal size of pty to tty. This should be run
@@ -51,14 +51,12 @@ type Winsize struct {
 }
 
 func windowRectCall(ws *Winsize, fd, a2 uintptr) error {
-	_, _, errno := syscall.Syscall(
-		syscall.SYS_IOCTL,
-		fd,
-		a2,
-		uintptr(unsafe.Pointer(ws)),
-	)
-	if errno != 0 {
-		return syscall.Errno(errno)
-	}
+
+	wz, err := unix.IoctlGetWinsize(int(fd), unix.TIOCGWINSZ)
+		if err != nil {
+			return err
+		}
+	ws.Rows =  wz.Row
+	ws.Cols =  wz.Col
 	return nil
 }

@@ -1,12 +1,11 @@
 package stats
 
 import (
-	"context"
 	"fmt"
 	"math"
 	"sync"
 	"time"
-
+	"context"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/shirou/gopsutil/cpu"
 )

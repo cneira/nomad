@@ -3,13 +3,8 @@
 package common
 
 import (
-	"context"
-	"path/filepath"
-	"strings"
-	"syscall"
 	"unsafe"
 
-	"github.com/StackExchange/wmi"
 	"golang.org/x/sys/windows"
 )
 
@@ -50,10 +45,9 @@ const (
 )
 
 var (
-	Modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
-	ModNt       = windows.NewLazySystemDLL("ntdll.dll")
-	ModPdh      = windows.NewLazySystemDLL("pdh.dll")
-	ModPsapi    = windows.NewLazySystemDLL("psapi.dll")
+	Modkernel32 = windows.NewLazyDLL("kernel32.dll")
+	ModNt       = windows.NewLazyDLL("ntdll.dll")
+	ModPdh      = windows.NewLazyDLL("pdh.dll")
 
 	ProcGetSystemTimes           = Modkernel32.NewProc("GetSystemTimes")
 	ProcNtQuerySystemInformation = ModNt.NewProc("NtQuerySystemInformation")
@@ -62,8 +56,6 @@ var (
 	PdhCollectQueryData          = ModPdh.NewProc("PdhCollectQueryData")
 	PdhGetFormattedCounterValue  = ModPdh.NewProc("PdhGetFormattedCounterValue")
 	PdhCloseQuery                = ModPdh.NewProc("PdhCloseQuery")
-
-	procQueryDosDeviceW = Modkernel32.NewProc("QueryDosDeviceW")
 )
 
 type FILETIME struct {
@@ -116,45 +108,4 @@ func CreateCounter(query windows.Handle, pname, cname string) (*CounterInfo, err
 		CounterName: cname,
 		Counter:     counter,
 	}, nil
-}
-
-// WMIQueryWithContext - wraps wmi.Query with a timed-out context to avoid hanging
-func WMIQueryWithContext(ctx context.Context, query string, dst interface{}, connectServerArgs ...interface{}) error {
-	if _, ok := ctx.Deadline(); !ok {
-		ctxTimeout, cancel := context.WithTimeout(ctx, Timeout)
-		defer cancel()
-		ctx = ctxTimeout
-	}
-
-	errChan := make(chan error, 1)
-	go func() {
-		errChan <- wmi.Query(query, dst, connectServerArgs...)
-	}()
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-errChan:
-		return err
-	}
-}
-
-// Convert paths using native DOS format like:
-//   "\Device\HarddiskVolume1\Windows\systemew\file.txt"
-// into:
-//   "C:\Windows\systemew\file.txt"
-func ConvertDOSPath(p string) string {
-	rawDrive := strings.Join(strings.Split(p, `\`)[:3], `\`)
-
-	for d := 'A'; d <= 'Z'; d++ {
-		szDeviceName := string(d) + ":"
-		szTarget := make([]uint16, 512)
-		ret, _, _ := procQueryDosDeviceW.Call(uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(szDeviceName))),
-			uintptr(unsafe.Pointer(&szTarget[0])),
-			uintptr(len(szTarget)))
-		if ret != 0 && windows.UTF16ToString(szTarget[:]) == rawDrive {
-			return filepath.Join(szDeviceName, p[len(rawDrive):])
-		}
-	}
-	return p
 }

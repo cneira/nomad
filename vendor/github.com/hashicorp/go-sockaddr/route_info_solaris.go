@@ -28,10 +28,9 @@ func (ri routeInfo) GetDefaultInterfaceName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	var ifName string
 	if ifName, err = parseDefaultIfNameFromRoute(string(out)); err != nil {
-		return "", errors.New("No default interface found")
+		return "", errors.New("No default interface found failed here")
 	}
 	return ifName, nil
 }

@@ -1179,6 +1179,7 @@ func (ifAddr IfAddr) String() string {
 // and Solaris.
 func parseDefaultIfNameFromRoute(routeOut string) (string, error) {
 	lines := strings.Split(routeOut, "\n")
+	fmt.Printf("lines = %v",lines)
 	for _, line := range lines {
 		kvs := strings.SplitN(line, ":", 2)
 		if len(kvs) != 2 {

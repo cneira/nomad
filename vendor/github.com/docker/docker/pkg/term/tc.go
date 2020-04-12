@@ -1,4 +1,4 @@
-// +build !windows
+// +build !windows,!illumos
 
 package term // import "github.com/docker/docker/pkg/term"
 

@@ -80,7 +80,7 @@ func SaveState(fd uintptr) (*State, error) {
 // descriptor, with echo disabled.
 func DisableEcho(fd uintptr, state *State) error {
 	newState := state.termios
-	newState.Lflag &^= unix.ECHO
+	newState.c_lflag &^= unix.ECHO
 
 	if err := tcset(fd, &newState); err != 0 {
 		return err

@@ -62,14 +62,11 @@ func NewNetworkFingerprint(logger log.Logger) Fingerprint {
 
 func (f *NetworkFingerprint) Fingerprint(req *FingerprintRequest, resp *FingerprintResponse) error {
 	cfg := req.Config
-
 	// Find the named interface
 	intf, err := f.findInterface(cfg.NetworkInterface)
 	switch {
 	case err != nil:
-		return fmt.Errorf("Error while detecting network interface %s during fingerprinting: %v",
-			cfg.NetworkInterface,
-			err)
+		return fmt.Errorf("Error while detecting network interface %s during fingerprinting: %v", cfg.NetworkInterface, err)
 	case intf == nil:
 		// No interface could be found
 		return nil
@@ -181,15 +178,18 @@ func (f *NetworkFingerprint) findInterface(deviceName string) (*net.Interface, e
 	if deviceName == "" {
 		ri, err := sockaddr.NewRouteInfo()
 		if err != nil {
-			return nil, err
+			//return nil, err
+			return nil, fmt.Errorf("output of neworouteinfo = %v err=%v",ri,err)
 		}
 
 		defaultIfName, err := ri.GetDefaultInterfaceName()
 		if err != nil {
-			return nil, err
+			//return nil, err
+			return nil, fmt.Errorf("output of neworouteinfo = %v err=%v",ri,err)
 		}
 		if defaultIfName == "" {
-			return nil, fmt.Errorf("no network_interface given and failed to determine interface attached to default route")
+			//return nil, fmt.Errorf("no network_interface given and failed to determine interface attached to default route")
+			return nil, fmt.Errorf("output of neworouteinfo = %v err=%v",ri,err)
 		}
 		deviceName = defaultIfName
 	}

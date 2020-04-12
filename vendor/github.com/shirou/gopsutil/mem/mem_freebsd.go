@@ -3,76 +3,82 @@
 package mem
 
 import (
-	"context"
 	"errors"
-	"unsafe"
-
-	"golang.org/x/sys/unix"
+	"os/exec"
+	"strconv"
+	"strings"
 
 	"github.com/shirou/gopsutil/internal/common"
 )
 
 func VirtualMemory() (*VirtualMemoryStat, error) {
-	return VirtualMemoryWithContext(context.Background())
-}
-
-func VirtualMemoryWithContext(ctx context.Context) (*VirtualMemoryStat, error) {
-	pageSize, err := common.SysctlUint("vm.stats.vm.v_page_size")
+	pageSize, err := common.DoSysctrl("vm.stats.vm.v_page_size")
 	if err != nil {
 		return nil, err
 	}
-	physmem, err := common.SysctlUint("hw.physmem")
+	p, err := strconv.ParseUint(pageSize[0], 10, 64)
 	if err != nil {
 		return nil, err
 	}
 
-	free, err := common.SysctlUint("vm.stats.vm.v_free_count")
+	pageCount, err := common.DoSysctrl("vm.stats.vm.v_page_count")
 	if err != nil {
 		return nil, err
 	}
-	active, err := common.SysctlUint("vm.stats.vm.v_active_count")
+	free, err := common.DoSysctrl("vm.stats.vm.v_free_count")
 	if err != nil {
 		return nil, err
 	}
-	inactive, err := common.SysctlUint("vm.stats.vm.v_inactive_count")
+	active, err := common.DoSysctrl("vm.stats.vm.v_active_count")
 	if err != nil {
 		return nil, err
 	}
-	buffers, err := common.SysctlUint("vfs.bufspace")
+	inactive, err := common.DoSysctrl("vm.stats.vm.v_inactive_count")
 	if err != nil {
 		return nil, err
 	}
-	wired, err := common.SysctlUint("vm.stats.vm.v_wire_count")
+	cache, err := common.DoSysctrl("vm.stats.vm.v_cache_count")
 	if err != nil {
 		return nil, err
 	}
-	var cached, laundry uint64
-	osreldate, _ := common.SysctlUint("kern.osreldate")
-	if osreldate < 1102000 {
-		cached, err = common.SysctlUint("vm.stats.vm.v_cache_count")
+	buffer, err := common.DoSysctrl("vfs.bufspace")
+	if err != nil {
+		return nil, err
+	}
+	wired, err := common.DoSysctrl("vm.stats.vm.v_wire_count")
+	if err != nil {
+		return nil, err
+	}
+
+	parsed := make([]uint64, 0, 7)
+	vv := []string{
+		pageCount[0],
+		free[0],
+		active[0],
+		inactive[0],
+		cache[0],
+		buffer[0],
+		wired[0],
+	}
+	for _, target := range vv {
+		t, err := strconv.ParseUint(target, 10, 64)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		laundry, err = common.SysctlUint("vm.stats.vm.v_laundry_count")
-		if err != nil {
-			return nil, err
-		}
+		parsed = append(parsed, t)
 	}
 
-	p := pageSize
 	ret := &VirtualMemoryStat{
-		Total:    physmem,
-		Free:     free * p,
-		Active:   active * p,
-		Inactive: inactive * p,
-		Cached:   cached * p,
-		Buffers:  buffers,
-		Wired:    wired * p,
-		Laundry:  laundry * p,
+		Total:    parsed[0] * p,
+		Free:     parsed[1] * p,
+		Active:   parsed[2] * p,
+		Inactive: parsed[3] * p,
+		Cached:   parsed[4] * p,
+		Buffers:  parsed[5],
+		Wired:    parsed[6] * p,
 	}
 
-	ret.Available = ret.Inactive + ret.Cached + ret.Free + ret.Laundry
+	ret.Available = ret.Inactive + ret.Cached + ret.Free
 	ret.Used = ret.Total - ret.Available
 	ret.UsedPercent = float64(ret.Used) / float64(ret.Total) * 100.0
 
@@ -80,88 +86,49 @@ func VirtualMemoryWithContext(ctx context.Context) (*VirtualMemoryStat, error) {
 }
 
 // Return swapinfo
+// FreeBSD can have multiple swap devices. but use only first device
 func SwapMemory() (*SwapMemoryStat, error) {
-	return SwapMemoryWithContext(context.Background())
-}
-
-// Constants from vm/vm_param.h
-// nolint: golint
-const (
-	XSWDEV_VERSION11 = 1
-	XSWDEV_VERSION   = 2
-)
-
-// Types from vm/vm_param.h
-type xswdev struct {
-	Version uint32 // Version is the version
-	Dev     uint64 // Dev is the device identifier
-	Flags   int32  // Flags is the swap flags applied to the device
-	NBlks   int32  // NBlks is the total number of blocks
-	Used    int32  // Used is the number of blocks used
-}
-
-// xswdev11 is a compatibility for under FreeBSD 11
-// sys/vm/swap_pager.c
-type xswdev11 struct {
-	Version uint32 // Version is the version
-	Dev     uint32 // Dev is the device identifier
-	Flags   int32  // Flags is the swap flags applied to the device
-	NBlks   int32  // NBlks is the total number of blocks
-	Used    int32  // Used is the number of blocks used
-}
-
-func SwapMemoryWithContext(ctx context.Context) (*SwapMemoryStat, error) {
-	// FreeBSD can have multiple swap devices so we total them up
-	i, err := common.SysctlUint("vm.nswapdev")
+	swapinfo, err := exec.LookPath("swapinfo")
 	if err != nil {
 		return nil, err
 	}
 
-	if i == 0 {
-		return nil, errors.New("no swap devices found")
-	}
-
-	c := int(i)
-
-	i, err = common.SysctlUint("vm.stats.vm.v_page_size")
+	out, err := invoke.Command(swapinfo)
 	if err != nil {
 		return nil, err
 	}
-	pageSize := i
+	for _, line := range strings.Split(string(out), "\n") {
+		values := strings.Fields(line)
+		// skip title line
+		if len(values) == 0 || values[0] == "Device" {
+			continue
+		}
 
-	var buf []byte
-	s := &SwapMemoryStat{}
-	for n := 0; n < c; n++ {
-		buf, err = unix.SysctlRaw("vm.swap_info", n)
+		u := strings.Replace(values[4], "%", "", 1)
+		total_v, err := strconv.ParseUint(values[1], 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		used_v, err := strconv.ParseUint(values[2], 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		free_v, err := strconv.ParseUint(values[3], 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		up_v, err := strconv.ParseFloat(u, 64)
 		if err != nil {
 			return nil, err
 		}
 
-		// first, try to parse with version 2
-		xsw := (*xswdev)(unsafe.Pointer(&buf[0]))
-		if xsw.Version == XSWDEV_VERSION11 {
-			// this is version 1, so try to parse again
-			xsw := (*xswdev11)(unsafe.Pointer(&buf[0]))
-			if xsw.Version != XSWDEV_VERSION11 {
-				return nil, errors.New("xswdev version mismatch(11)")
-			}
-			s.Total += uint64(xsw.NBlks)
-			s.Used += uint64(xsw.Used)
-		} else if xsw.Version != XSWDEV_VERSION {
-			return nil, errors.New("xswdev version mismatch")
-		} else {
-			s.Total += uint64(xsw.NBlks)
-			s.Used += uint64(xsw.Used)
-		}
-
+		return &SwapMemoryStat{
+			Total:       total_v,
+			Used:        used_v,
+			Free:        free_v,
+			UsedPercent: up_v,
+		}, nil
 	}
 
-	if s.Total != 0 {
-		s.UsedPercent = float64(s.Used) / float64(s.Total) * 100
-	}
-	s.Total *= pageSize
-	s.Used *= pageSize
-	s.Free = s.Total - s.Used
-
-	return s, nil
+	return nil, errors.New("no swap devices found")
 }

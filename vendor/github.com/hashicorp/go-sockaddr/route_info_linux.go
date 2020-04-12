@@ -1,3 +1,5 @@
+// +build !illumos
+
 package sockaddr
 
 import (
