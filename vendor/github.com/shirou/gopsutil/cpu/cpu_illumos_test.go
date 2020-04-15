@@ -73,6 +73,15 @@ func TestParseProcessorInfo(t *testing.T) {
 			},
 		},
 		{
+			"2cpu_2core_psrinfo.txt",
+			[]InfoStat{
+				{CPU: 0, VendorID: "AuthenticAMD", Family: "23", Model: "113", Stepping: 0, PhysicalID: "0", CoreID: "0", Cores: 1, ModelName: "AMD Ryzen 9 3900X 12-Core Processor", Mhz: 3800},
+				{CPU: 1, VendorID: "AuthenticAMD", Family: "23", Model: "113", Stepping: 0, PhysicalID: "0", CoreID: "1", Cores: 1, ModelName: "AMD Ryzen 9 3900X 12-Core Processor", Mhz: 3800},
+				{CPU: 2, VendorID: "AuthenticAMD", Family: "23", Model: "113", Stepping: 0, PhysicalID: "1", CoreID: "0", Cores: 1, ModelName: "AMD Ryzen 9 3900X 12-Core Processor", Mhz: 3800},
+				{CPU: 3, VendorID: "AuthenticAMD", Family: "23", Model: "113", Stepping: 0, PhysicalID: "1", CoreID: "1", Cores: 1, ModelName: "AMD Ryzen 9 3900X 12-Core Processor", Mhz: 3800},
+			},
+		},
+		{
 			"2cpu_8core_psrinfo.txt",
 			[]InfoStat{
 				{CPU: 0, VendorID: "GenuineIntel", Family: "6", Model: "45", Stepping: 7, PhysicalID: "0", CoreID: "0", Cores: 2, ModelName: "Intel(r) Xeon(r) CPU E5-2670 0 @ 2.60GHz", Mhz: 2600},

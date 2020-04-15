@@ -358,7 +358,9 @@ func parseISAInfo(cmdOutput string) ([]string, error) {
 	return flags, nil
 }
 
-var psrinfoMatch = regexp.MustCompile(`The physical processor has (?:([\d]+) virtual processor \(([\d]+)\)|([\d]+) cores and ([\d]+) virtual processors[^\n]+)\n(?:\s+ The core has.+\n)*\s+.+ \((\w+) ([\S]+) family (.+) model (.+) step (.+) clock (.+) MHz\)\n[\s]*(.*)`)
+
+var psrinfoMatch = regexp.MustCompile(`The physical processor has (?:([\d]+) virtual processor[s]* \(([\d]+|[\d]+-[\d]+)\)|([\d]+) cores and ([\d]+) virtual processors[^\n]+)\n(?:\s+ The core has.+\n)*\s+.+ \((\w+) ([\S]+) family (.+) model (.+) step (.+) clock (.+) MHz\)\n[\s]*(.*)`)
+
 
 const (
 	psrNumCoresOffset   = 1
