@@ -222,8 +222,17 @@ To cross-compile Nomad, run `make prerelease` and `make release`.
 This will generate all the static assets, compile Nomad for multiple
 platforms and place the resulting binaries into the `./pkg` directory:
 
-**Note:** For Omniosce you will need to install yarn nodejs-12 gcc and your
-$PATH should have first gnu tools /usr/gnu/bin as nomad needs to be built with gnu make.
+**Note:** For Omniosce you will need to install the following packages from pkgsrc :
+- yarn 
+- nodejs-12 
+- gcc 
+your $PATH should have first gnu tools /usr/gnu/bin as nomad needs to be built with gnu make.
+
+```sh
+$ pfexec pkgin in nodejs-12 yarn gcc 
+...
+$ export PATH=/usr/gnu/bin:$GOPATH:$PATH
+```
 
 ```sh
 $ make prerelease
