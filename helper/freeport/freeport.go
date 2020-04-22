@@ -153,6 +153,7 @@ func checkFreedPortsOnce() {
 // port range.
 func adjustMaxBlocks() (int, error) {
 	ephemeralPortMin, ephemeralPortMax, err := getEphemeralPortRange()
+
 	if err != nil {
 		return 0, err
 	}
