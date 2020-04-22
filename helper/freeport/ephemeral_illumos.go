@@ -16,18 +16,17 @@ The following examples illustrate how you can query and change the settings:
 
 Example 1: Query the Current Settings
 
-# /usr/sbin/ndd /dev/tcp tcp_smallest_anon_port tcp_largest_anon_port
+# ipadm show-prop  -co CURRENT  -p smallest_anon_port,largest_anon_port tcp
 32768
 65535
-
 */
 
-const ephemeralPortRangenddKey = "tcp_smallest_anon_port tcp_largest_anon_port"
+const ephemeralPortRangenddKey = "smallest_anon_port,largest_anon_port"
 
-var ephemeralPortRangePatt = regexp.MustCompile(`^\s*(\d+)\n(\d+)\s*$`)
+var ephemeralPortRangePatt = regexp.MustCompile(`^\s*(\d+)\n(\d+)`)
 
 func getEphemeralPortRange() (int, int, error) {
-	cmd := exec.Command("/usr/sbin/ndd", "/dev/tcp", ephemeralPortRangenddKey)
+	cmd := exec.Command("/usr/sbin/ipadm", "show-prop", "-co", "CURRENT", "-p",  ephemeralPortRangenddKey, "tcp")
 	out, err := cmd.Output()
 	if err != nil {
 		return 0, 0, err
