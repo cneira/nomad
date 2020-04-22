@@ -1,4 +1,5 @@
 // +build !windows
+// +build !illumos
 
 // Package term provides structures and helper functions to work with
 // terminal (state, sizes).

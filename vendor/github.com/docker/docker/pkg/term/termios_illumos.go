@@ -1,39 +1,39 @@
-// +build illumos
-
 package term // import "github.com/docker/docker/pkg/term"
 
-// include <sys/types.h>
-// include <termios.h>
-
 import (
-	"errors"
+	"golang.org/x/sys/unix"
 )
-// #include <termios.h>
-// #include <sys/ioctl.h>
-// int tcgetattr(int fd, struct termios *);
-import "C"
+
+const (
+	getTermios = unix.TCGETS
+	setTermios = unix.TCSETS
+)
 
 // Termios is the Unix API for terminal I/O.
-type Termios C.struct_termios
+type Termios unix.Termios
 
 // MakeRaw put the terminal connected to the given file descriptor into raw
 // mode and returns the previous state of the terminal so that it can be
 // restored.
 func MakeRaw(fd uintptr) (*State, error) {
-	var oldState C.struct_termios 
-	var oldState2 State 
-	if err := C.tcgetattr(C.int(fd), &oldState); err != 0 {
-		return nil, errors.New("err")
+	termios, err := unix.IoctlGetTermios(int(fd), getTermios)
+	if err != nil {
+		return nil, err
 	}
 
-	newState := oldState
-	newState.c_iflag &^= (C.IGNBRK | C.BRKINT | C.PARMRK | C.ISTRIP | C.INLCR |C.IGNCR | C.ICRNL | C.IXON)
-	newState.c_oflag &^= C.OPOST
-	newState.c_lflag &^= (C.ECHO | C.ECHONL | C.ICANON | C.ISIG | C.IEXTEN)
-	newState.c_cflag &^= (C.CSIZE | C.PARENB)
-	newState.c_cflag |= C.CS8
-	newState.c_cc[C.VMIN] = 1
-	newState.c_cc[C.VTIME] = 0
+	var oldState State
+	oldState.termios = Termios(*termios)
 
-	return &oldState2, nil
+	termios.Iflag &^= (unix.IGNBRK | unix.BRKINT | unix.PARMRK | unix.ISTRIP | unix.INLCR | unix.IGNCR | unix.ICRNL | unix.IXON)
+	termios.Oflag &^= unix.OPOST
+	termios.Lflag &^= (unix.ECHO | unix.ECHONL | unix.ICANON | unix.ISIG | unix.IEXTEN)
+	termios.Cflag &^= (unix.CSIZE | unix.PARENB)
+	termios.Cflag |= unix.CS8
+	termios.Cc[unix.VMIN] = 1
+	termios.Cc[unix.VTIME] = 0
+
+	if err := unix.IoctlSetTermios(int(fd), setTermios, termios); err != nil {
+		return nil, err
+	}
+	return &oldState, nil
 }

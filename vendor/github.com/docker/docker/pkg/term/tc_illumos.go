@@ -3,25 +3,24 @@
 package term // import "github.com/docker/docker/pkg/term"
 
 import (
+	"golang.org/x/sys/unix"
 	"syscall"
-	"unsafe"
 )
-// #include <termios.h>
-// #include <sys/ioctl.h>
-// int tcgetattr(int fd, struct termios *);
-// int tcgetattr(int fd, struct termios *);
 import "C"
 
 func tcget(fd uintptr, p *Termios) syscall.Errno {
-if err := C.tcgetattr(C.int(fd), (*C.struct_termios)(unsafe.Pointer(p))); err != 0 {
-		return (syscall.Errno)(err)
+
+	termios, err := unix.IoctlGetTermios(int(fd), getTermios)
+	if err != nil {
+		return syscall.EINVAL
 	}
-		return  0
+	p = (*Termios)(termios)
+	return 0
 }
 
 func tcset(fd uintptr, p *Termios) syscall.Errno {
-if err := C.tcsetattr(C.int(fd),C.TCSANOW, (*C.struct_termios)(unsafe.Pointer(p))); err != 0 {
-		return (syscall.Errno)(err)
+	if err := unix.IoctlSetTermios(int(fd), setTermios,(*unix.Termios)(p)); err != nil {
+		return syscall.EINVAL
 	}
-return 0 
+	return 0
 }
