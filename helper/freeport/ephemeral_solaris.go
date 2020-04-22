@@ -1,4 +1,5 @@
-//+build linux
+//+build !illumos
+//+build solaris
 
 package freeport
 

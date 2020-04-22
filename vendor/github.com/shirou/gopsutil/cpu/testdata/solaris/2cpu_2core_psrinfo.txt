@@ -1,0 +1,6 @@
+The physical processor has 2 virtual processors (0-1)
+  x86 (AuthenticAMD 870F10 family 23 model 113 step 0 clock 3800 MHz)
+        AMD Ryzen 9 3900X 12-Core Processor
+The physical processor has 2 virtual processors (2-3)
+  x86 (AuthenticAMD 870F10 family 23 model 113 step 0 clock 3800 MHz)
+        AMD Ryzen 9 3900X 12-Core Processor
